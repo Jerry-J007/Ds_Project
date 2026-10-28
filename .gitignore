@@ -1,6 +1,0 @@
-object/
-a.out
-*.o
-*.out
-.vscode/
-.DS_Store
