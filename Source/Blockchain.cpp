@@ -66,24 +66,19 @@ bool VotingBlockchain::castVote(int rollNumber, int candidateID){
 
 BlockNode* VotingBlockchain::verifyVotes(BlockNode* start, BlockNode* end){
     BlockNode* ptr = start;
-    if(end){        // the end is mentioned
-        string hash = "0";
-        while(ptr != end){
-            hash = calculateSHA256(ptr->roll_no, ptr->vote, ptr->timestamp, ptr->reciept,hash);
-            if(ptr->currHash != hash) return ptr;
-            ptr = ptr->next;
-        }
-        return nullptr;
+    string hash = "0";
+    while(ptr != end->next){
+        hash = calculateSHA256(ptr->roll_no, ptr->vote, ptr->timestamp, ptr->reciept,hash);
+        if(ptr->currHash != hash) return ptr;
+        ptr = ptr->next;
     }
-    else{
-        string hash = "0";
-        while(ptr){
-            hash = calculateSHA256(ptr->roll_no, ptr->vote, ptr->timestamp, ptr->reciept,hash);
-            if(ptr->currHash != hash) return ptr;
-            ptr = ptr->next;
-        }
-        return nullptr;
-    }
+    return nullptr;
+}
+
+void VotingBlockchain::deleteNode(BlockNode* node){
+    BlockNode** pointer = &node;
+    *pointer = node->next;
+    delete node;
 }
 
 unordered_map<int,int> VotingBlockchain::displayElectionTally(){

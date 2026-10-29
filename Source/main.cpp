@@ -25,7 +25,9 @@ int main() {
                   << "4. Display B+ Tree Internal & Leaf Structure\n"
                   << "5. Display Election Tally\n"
                   << "6. Run Full Integrity Audit (Chain + B+ Tree Cross-Check)\n"
-                  << "7. [Demo] Simulate Vote Tampering on a Block\n"
+                  << "7. Remove voter"
+                  << "8. Ban user"
+                  << "9. Show vote"
                   << "0. Exit\n"
                   << "Enter choice: ";
 
@@ -109,6 +111,46 @@ int main() {
                     }
                     default:
                         cout<<"Enter a valid choice";
+                }
+                break;
+            }
+            case 7:{
+                // do admin checks
+                int rollNo;
+                cout<<"Enter roll.no to be deleted: ";
+                cin>>rollNo;
+                BlockNode* node = hashTable.searchNode(rollNo);
+                hashTable.removeVote(rollNo);
+                blockChain.deleteNode(node);
+                cout<<"Deleted successfully";
+            }
+            case 8:{
+                // do admin checks
+                int rollNo;
+                cout<<"Enter roll.no to be deleted: ";
+                cin>>rollNo;
+                BlockNode* node = hashTable.searchNode(rollNo);
+                hashTable.removeVoter(rollNo);
+                blockChain.deleteNode(node);
+                cout<<"Banned successfully";
+            }
+            case 9:{
+                int rollNo;
+                string pw;
+                cout<<"Enter roll.no: ";
+                cin>>rollNo;
+                BlockNode* node = hashTable.searchNode(rollNo);
+                if(!node){
+                    cout<<"Voter does not exist";
+                    break;
+                }
+                cout<<"Enter reciept: ";
+                cin>>pw;
+                if(pw == node->reciept){
+                    cout<<"Voted for "<<node->vote;
+                }
+                else{
+                    cout<<"Receipt does not match";
                 }
                 break;
             }

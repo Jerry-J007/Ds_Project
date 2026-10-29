@@ -5,7 +5,7 @@ void HashModule::registerVoter(int rollNumber){
     int index = rollNumber%TABLE_SIZE;
     VoterNode* node = new VoterNode;
     node->roll_no = rollNumber;
-    node->hasVoted = false;
+    node->pointer = nullptr;
     node->next = nullptr;
 
     node->next = table[index];      // inserting new entries at tail;
@@ -16,28 +16,24 @@ HashModule::HashModule(){
     table.resize(TABLE_SIZE, nullptr);
 }
 
-bool HashModule::canVote(int rollNumber){
+int HashModule::canVote(int rollNumber){        // 0 - not registered, 1 - registered but not voted, 2 - registered and voted
     int index = rollNumber%TABLE_SIZE;
     VoterNode* node = table[index];
     while(node){
-        if(node->roll_no == rollNumber) return !node->hasVoted;
+        if(node->roll_no == rollNumber) return !(node->pointer == nullptr) ? 2:1;
         node = node->next;
     }
-    return false;
+    return 0;
 }
 
-bool HashModule::markVoted(int rollNumber, BlockNode* nodePointer) {        // returns false if user not found
-    int index = rollNumber%TABLE_SIZE;
+BlockNode* HashModule::searchNode(int rollNo){
+    int index = rollNo%TABLE_SIZE;
     VoterNode* node = table[index];
     while(node){
-        if(node->roll_no == rollNumber){
-            node->hasVoted = true;
-            // assign the pointer to LL node
-            return true;
-        }
+        if(node->roll_no == rollNo) return node->pointer;
         node = node->next;
-    }
-    return false;
+    } 
+    return nullptr;
 }
 
 bool HashModule::removeVoter(int rollNumber){
@@ -53,6 +49,20 @@ bool HashModule::removeVoter(int rollNumber){
             VoterNode* temp = node->next;
             node->next = node->next->next;
             delete temp;
+            return true;
+        }
+        node = node->next;
+    }
+    return false;
+}
+
+bool HashModule::removeVote(int rollNumber){
+    int index = rollNumber%TABLE_SIZE;
+    VoterNode* node = table[index];
+    while(node){
+        if(node->roll_no == rollNumber){
+            node->hasVoted = false;
+            node->pointer = nullptr;
             return true;
         }
         node = node->next;
