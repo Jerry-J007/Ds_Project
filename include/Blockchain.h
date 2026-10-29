@@ -39,6 +39,8 @@ class VotingBlockchain{
         bool tamperBlockForDemo(int blockID, int newCandidateID);
         string generateReceipt();
         string calculateSHA256(int rollNumber, int vote,string timestamp, string receipt, string prevHash);
+        void deleteNode(BlockNode* node);
+        
 };
 
 #endif

@@ -1,10 +1,11 @@
 #ifndef HASH_MODULE_H
 #define HASH_MODULE_H
 
-#include "../include/Blockchain.h"
 #include <vector>
 
 using namespace std;
+
+struct BlockNode;  // forward declaration, so that the complier will know that a struct of this type exists.
 
 class HashModule {
     private:
@@ -13,7 +14,7 @@ class HashModule {
         struct VoterNode {
             int roll_no;
             bool hasVoted;
-            // add the pointer to LL field ( will be done after I finish Blcokchain part)
+            BlockNode* pointer;
             VoterNode* next;
         };
 
@@ -22,9 +23,10 @@ class HashModule {
     public:
         HashModule();
         void registerVoter(int roll_no);
-        bool canVote(int roll_no);
-        bool markVoted(int roll_no, BlockNode* nodePointer);
+        int canVote(int roll_no);
         bool removeVoter(int roll_no);
+        bool removeVote(int roll_no);
+        BlockNode* searchNode(int rollNo);
 };
 
 
