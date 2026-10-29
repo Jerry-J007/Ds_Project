@@ -6,6 +6,7 @@
 #include <string>
 #include <map>
 #include <unordered_map>
+using namespace std;
 
 struct BlockNode {
     int blockID;    // in B+ Trees
@@ -18,7 +19,7 @@ struct BlockNode {
 };
 
 class VotingBlockchain{
-    private:
+    public:
         BlockNode* head;
         BlockNode* tail;
         int blockCount;
@@ -28,11 +29,10 @@ class VotingBlockchain{
 
         string getCurrentTimestamp();
 
-    public:
         VotingBlockchain(BPlusTreeDB& DB, HashModule& HT);
 
         bool castVote(int rollNumber, int candidateID);
-        bool verifyVotes(BlockNode* start, BlockNode* end);
+        BlockNode* verifyVotes(BlockNode* start, BlockNode* end);
         unordered_map<int,int> displayElectionTally();
 
         // Demo helper: Simulates tampering to prove detection during review
