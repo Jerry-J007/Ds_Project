@@ -1,5 +1,5 @@
 #include "../include/BPlusTree.h"
-#include "../include/HashModule.h"
+#include "../include/HashTable.h"
 #include "../include/Blockchain.h"
 #include"../include/httplib.h"// Single-header HTTP server
 #include <iostream>

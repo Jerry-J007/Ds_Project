@@ -6,7 +6,7 @@
 #include <fstream>
 
 // Record stored inside the B+ Tree Leaf Database
-struct VoteDBRecord {
+struct VoteDBRecord{
     int blockID;             // Primary Key (Indexed in B+ Tree)
     int candidateID;         // Vote choice
     std::string timestamp;   // Time of vote
@@ -14,7 +14,7 @@ struct VoteDBRecord {
     std::string prevHash;    // Previous block hash
 };
 
-class BPlusNode {
+class BPlusNode{
 public:
     bool isLeaf;
     std::vector<int> keys;
@@ -25,7 +25,7 @@ public:
     BPlusNode(bool leaf);
 };
 
-class BPlusTreeDB {
+class BPlusTreeDB{
 private:
     BPlusNode* root;
     const int MAX_KEYS = 3; // Small degree so splits are easy to demo in viva

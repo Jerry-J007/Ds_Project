@@ -1,172 +1,245 @@
 #include "../include/BPlusTree.h"
-#include "../include/HashModule.h"
+#include "../include/Ballot.h"
+#include "../include/HashTable.h"
 #include "../include/Blockchain.h"
 #include <iostream>
 #include <vector>
+#include <filesystem>
+#include <sstream>
+#include <fstream>
+#include <ctime>
 using namespace std;
 
+struct userNode{
+    int roll;
+    string pw;
+    userNode* next;
+};
+HashTable<userNode*> users = new HashTable<userNode*>;
+BallotChain* ballots = new BallotChain;
+
+int showVote(int ballotID, int RollNo);
+void remove_vote(int ballotID, int ADMIN, int RollNo);
+void remove_voter(int ballotID, int ADMIN, int RollNo);
+BlockNode* checkTamper(int ballotID, int choice, pair<int,int> interval);
 void insert(vector<pair<int,int>>&arr, pair<int,int> element);
+vector<pair<int,int>> getTally(int ballotID);
+int checkState(int ballotID, int RollNo);
+void Vote(int ballotID, int RollNo, int VOTE);
+VotingBlockchain* loadBallot(const filesystem::path& entry);
+void loadBallots();
+void storeballot(BallotNode* ballot);
+void storeballots();
+void loadUsers(HashTable<userNode*>& users);
+bool authorizeUser(int roll, string pw);
+void removeBallot(int ballotID);
 
-int main() {
-    BPlusTreeDB btreeDB("votes_btree.db");
-    HashModule hashTable;
-    VotingBlockchain blockChain(btreeDB, hashTable);
+int main(){
+    loadUsers(users);
+    loadBallots();
 
-    // Pre-register NITT sample roll numbers for quick demo
-    int sampleRolls[] = {106125043, 106125045, 106125047, 106125001, 106125002, 106125003};     // get it from admin
-    for (int r : sampleRolls) hashTable.registerVoter(r);
+}
 
-    int choice;
-    while (true) {
-        std::cout << "\n================ TRANSPARENT VOTING SYSTEM ================\n"
-                  << "1. Cast Vote (Hash Table Check -> Blockchain -> B+ Tree DB)\n"
-                  << "2. Search Vote by Roll.No O(1) Lookup)\n"
-                  << "3. Range Audit Votes (B+ Tree Leaf-Chain Traversal)\n"
-                  << "4. Display B+ Tree Internal & Leaf Structure\n"
-                  << "5. Display Election Tally\n"
-                  << "6. Run Full Integrity Audit (Chain + B+ Tree Cross-Check)\n"
-                  << "7. Remove voter"
-                  << "8. Ban user"
-                  << "9. Show vote"
-                  << "0. Exit\n"
-                  << "Enter choice: ";
+int showVote(int ballotID, int RollNo){
+    BallotNode* ballot = ballots->hashTable.find(ballotID);
+    BlockNode* node = ballot->votes->hashTable.find(RollNo);
+    return node->vote;
+}
 
-        if (!(std::cin >> choice)){ 
-            cout<<"Enter valid a choice.";
-            break;
-        }
+void remove_vote(int ballotID, int ADMIN, int RollNo){
+    BallotNode* ballot = ballots->hashTable.find(ballotID);
+    BlockNode* node = ballot->votes->hashTable.find(RollNo);
+    ballot->votes->hashTable.removeEntry(RollNo);
+    ballot->votes->deleteNode(node);
+}
 
-        switch(choice){
-            case 1:{
-                int roll, cand;
-                std::cout << "Enter Roll No: ";
-                std::cin >> roll;
-                std::cout << "Enter Candidate ID (1, 2, or 3): ";       // make it felxible for any no.of candidates
-                std::cin >> cand;
-                blockChain.castVote(roll, cand);
-                break;
-            }
-            case 2:{
-                int roll_no;
-                std::cout << "Enter Roll.no to search in Hashtable: ";
-                std::cin >> roll_no;
-                int result = hashTable.canVote(roll_no);
-                if(result == 2){
-                    cout<<"Has already voted";
-                }
-                else if(result == 1){
-                    cout<<"Hasn't voted yet";
-                }
-                else{
-                    cout<<"Not voted yet.";
-                }
-                break;
-            }
-            case 3:{
-                int s, e;
-                std::cout << "Enter Start Block ID and End Block ID: ";
-                std::cin >> s >> e;
-                auto records = btreeDB.rangeQuery(s, e);
-                std::cout << "--- B+ Tree Leaf Range Results (" << records.size() << " blocks) ---\n";
-                for (const auto& r : records) {
-                    std::cout << "Block #" << r.blockID << " -> Candidate " << r.candidateID 
-                            << " [" << r.blockHash.substr(0, 10) << "...]\n";
-                }
-                break;
-            }
-            case 4:{
-                btreeDB.displayTreeStructure();
-                break;
-            }
-            case 5:{
-                unordered_map<int,int>tally = blockChain.displayElectionTally();
-                int candidateCount = 3;      // need to be flexible
-                vector<pair<int,int>> votes;
-                votes.reserve(candidateCount);
-                for( pair<int,int> vote : tally){
-                    insert(votes,vote);
-                }
-                for(int i =0;i < candidateCount;i++){
-                    cout<<i+1<<") "<<"Candidate "<<votes[i].first<<" : "<<"Votes: "<<votes[i].second;
-                }
-                break;
-            }
-            case 6:{
-                int option;
-                cout<<"Which section of votes do you want to verify?\n1) All the votes (Press 1)\n2) Range of votes based on timeline (Press 2):";
-                cin>>option;
-                switch(option){
-                    case 1:{
-                        BlockNode* tamperedNode = blockChain.verifyVotes(blockChain.head, blockChain.tail);
-                        if(!tamperedNode){
-                            cout<<"No vote is tampered";
-                            break;
-                        }
-                        cout<<"The vote of Roll.No: "<<tamperedNode->roll_no<<" has been tampered";
-                        break;
-                    }
-                    case 2:{
-                        // Jeruson (check the B+ Tree)
-                        break;
-                    }
-                    default:
-                        cout<<"Enter a valid choice";
-                }
-                break;
-            }
-            case 7:{
-                // do admin checks
-                int rollNo;
-                cout<<"Enter roll.no to be deleted: ";
-                cin>>rollNo;
-                BlockNode* node = hashTable.searchNode(rollNo);
-                hashTable.removeVote(rollNo);
-                blockChain.deleteNode(node);
-                cout<<"Deleted successfully";
-            }
-            case 8:{
-                // do admin checks
-                int rollNo;
-                cout<<"Enter roll.no to be deleted: ";
-                cin>>rollNo;
-                BlockNode* node = hashTable.searchNode(rollNo);
-                hashTable.removeVoter(rollNo);
-                blockChain.deleteNode(node);
-                cout<<"Banned successfully";
-            }
-            case 9:{
-                int rollNo;
-                string pw;
-                cout<<"Enter roll.no: ";
-                cin>>rollNo;
-                BlockNode* node = hashTable.searchNode(rollNo);
-                if(!node){
-                    cout<<"Voter does not exist";
-                    break;
-                }
-                cout<<"Enter reciept: ";
-                cin>>pw;
-                if(pw == node->reciept){
-                    cout<<"Voted for "<<node->vote;
-                }
-                else{
-                    cout<<"Receipt does not match";
-                }
-                break;
-            }
-            default:
-                cout<<"Invalid choice";
-        }
+void remove_voter(int ballotID, int ADMIN, int RollNo){
+    BallotNode* ballot = ballots->hashTable.find(ballotID);
+    BlockNode* node = ballot->votes->hashTable.find(RollNo);
+    ballot->votes->deleteNode(node);
+    ballot->votes->hashTable.remove(RollNo);
+}
+
+BlockNode* checkTamper(int ballotID, int choice, pair<int,int> interval){        // choice: 0-entire, 1 - interval 
+    BallotNode* ballot = ballots->hashTable.find(ballotID);
+    if(!choice){
+        BlockNode* tamperedNode = ballot->votes->verifyVotes(ballot->votes->head, ballot->votes->tail);
+        return tamperedNode;
     }
-    return 0;
+    else{
+        // B+ tree handles this case (pending)....
+    }
 }
 
 void insert(vector<pair<int,int>>&arr, pair<int,int> element){
     int i = arr.size()-1;
+    if(i <0){
+        arr.push_back(element);
+        return;
+    }
     arr.push_back(element);
-    while(i >= 0){
-        if(arr[i].second < arr[i+1].second) break; 
+    i++;
+    while(i > 0){
+        if(arr[i-1].second > arr[i].second) break; 
         swap(arr[i], arr[i+1]);
         i--;
     }
 }
+
+vector<pair<int,int>> getTally(int ballotID){
+    BallotNode* ballot = ballots->hashTable.find(ballotID);
+    unordered_map<int,int> tally = ballot->votes->displayElectionTally();
+    vector<pair<int,int>> votes;
+    for( pair<int,int> vote : tally){
+        insert(votes,vote);
+    }
+    return votes;
+}
+
+int checkState(int ballotID, int RollNo){
+    BallotNode* ballot = ballots->hashTable.find(ballotID);
+    int result = ballot->votes->hashTable.stateCheck(RollNo);
+    return result;
+}
+
+void Vote(int ballotID, int RollNo, int VOTE){
+    BallotNode* ballot = ballots->hashTable.find(ballotID);
+    ballot->votes->castVote(RollNo, VOTE);
+}
+
+VotingBlockchain* loadBallot(const filesystem::path& entry){
+    ifstream in (entry.string());
+    string line;
+    string piece;
+
+    // first line 
+    string title;
+    int adminRoll;
+    vector<int> candidates;
+    getline(in, title, '|');
+    getline(in, piece, '|');
+    adminRoll = stoi(piece);
+    
+    if(getline(in, line)){
+        stringstream ss(line);
+        while(getline(ss, piece, ',')){
+            candidates.push_back(stoi(piece));
+        }
+    }
+    vector<int> arr;
+    VotingBlockchain* voteChain = new VotingBlockchain(title,adminRoll, candidates,arr);
+
+    //second line
+    if(getline(in, line)){
+        stringstream ss(line);
+        while(getline(ss, piece, ',')){
+            voteChain->hashTable.registerEntry(stoi(piece));
+            voteChain->resgisteredVoters.push_back(stoi(piece));
+        }
+    }
+
+    // lines below line 2
+    while(getline(in, line)){
+        stringstream ss(line);
+        // BlockID
+        getline(ss, piece, '|');
+        int BLOCKID = stoi(piece);
+        getline(ss, piece, '|');
+        int ROLL = stoi(piece);
+        getline(ss, piece, '|');
+        int VOTE = stoi(piece);
+        getline(ss, piece, '|');
+        string TIMESTAMP = piece;
+        getline(ss, piece, '|');
+        string PREVHASH = piece;
+        getline(ss, piece, '|');
+        string CURRHASH = piece;
+        voteChain->retrieveChain(BLOCKID,ROLL,VOTE,TIMESTAMP,CURRHASH,PREVHASH);
+    }
+    return voteChain;
+}
+
+void loadBallots(){
+    for(auto& entry : filesystem::directory_iterator("ballots")){
+        if(entry.path().extension() == ".db"){
+            VotingBlockchain* voteChain = loadBallot(entry.path());
+            ballots->retrieveChain(voteChain);
+        }
+    }
+}
+
+void storeballot(BallotNode* ballot){
+    string filename = "./ballots/ballot" + to_string(ballot->id) + ".db";
+    ofstream out(filename, ios::trunc);
+
+    //line 1
+    out<<ballot->votes->title<<'|'<<ballot->votes->admin<<'|';
+    for(int i = 0;i< ballot->votes->candidates.size();i++){
+        if(i < i< ballot->votes->candidates.size()-1) out<<ballot->votes->candidates[i]<<',';
+        else out<<ballot->votes->candidates[i]<<"\n";
+    }
+    //line 2
+    for(int i = 0;i< ballot->votes->resgisteredVoters.size();i++){
+        if(i < i< ballot->votes->resgisteredVoters.size()-1) out<<ballot->votes->resgisteredVoters[i]<<',';
+        else out<<ballot->votes->resgisteredVoters[i]<<"\n";
+    }
+    //line 3 onwards
+    BlockNode* node = ballot->votes->head;
+    while(node){
+        out<<node->blockID<<'|'<<node->roll_no<<"|"<<node->vote<<"|"<<node->timestamp<<"|"<<node->prevHash<<"|"<<node->currHash<<"\n";
+        node = node->next;
+    }
+    out.close();
+}
+
+void storeballots(){
+    BallotNode* node = ballots->head;
+    while(node){
+        storeballot(node);
+        node = node->next;
+    }
+}
+
+void loadUsers(HashTable<userNode*>& users){
+    ifstream in("users.db");
+    string line;
+    string piece;
+    while(getline(in, line)){
+        stringstream ss(line);
+        getline(ss, piece, '|');
+        int roll = stoi(piece);
+        getline(ss, piece);
+        users.registerEntry(roll);
+        userNode* node = new userNode;
+        node->roll = roll;
+        node->pw = piece;
+        node->next = nullptr;
+        users.insert(roll, node);
+    }
+}
+
+bool authorizeUser(int roll, string pw){            // login check
+    int index = roll%(users->TABLE_SIZE);
+    userNode* node = users->table[index];
+    while(node){
+        if(node->roll == roll){
+            if(node->pw == pw){
+                return true;
+            }
+            return false;
+        }
+        node = node->next;
+    }
+    return false;
+}
+
+void removeBallot(int ballotID){
+    BallotNode* ballot = ballots->hashTable.find(ballotID);
+    ballots->hashTable->remove(ballotID);
+    ballots->deleteballot(ballot);
+}
+
+/*
+use ballots->createBallot(....) to create a ballot directly
+
+*/

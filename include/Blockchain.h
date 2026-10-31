@@ -2,44 +2,45 @@
 #define BLOCKCHAIN_H
 
 #include "BPlusTree.h"
-#include "HashModule.h"
+#include "HashTable.h"
 #include <string>
 #include <map>
 #include <unordered_map>
 using namespace std;
 
-struct BlockNode {
+struct BlockNode{
     int blockID;    // in B+ Trees
     int roll_no;
     int vote;       // the candidate no.
-    string reciept;
     string timestamp;
     string currHash;
+    string prevHash;
     BlockNode* next;
 };
 
 class VotingBlockchain{
     public:
+        string title;
         BlockNode* head;
         BlockNode* tail;
-        int blockCount;
-        BPlusTreeDB& database;     // Reference to your B+ Tree Database
-        HashModule& hashTable;   // Reference to your friend's Hash Table
-        int candidateCount;    // no.of candidates;
-
+        int blockCount;     // no.of ppl voted
+        BPlusTreeDB database;     
+        HashTable<BlockNode*> hashTable;   
+        int admin;
+        vector<int> resgisteredVoters;
+        vector<int> candidates;
         string getCurrentTimestamp();
 
-        VotingBlockchain(BPlusTreeDB& DB, HashModule& HT);
+        VotingBlockchain(string TITLE, int adminRoll, vector<int> candidatesArr,vector<int> REGISTEREDVOTERS);
 
-        bool castVote(int rollNumber, int candidateID);
+        void retrieveChain(int BLOCKid, int ROLL, int VOTE, string TIMESTAMP, string CURRHASH, string PREVHASH);
+
+        void castVote(int rollNumber, int candidateID);
         BlockNode* verifyVotes(BlockNode* start, BlockNode* end);
         unordered_map<int,int> displayElectionTally();
 
-        // Demo helper: Simulates tampering to prove detection during review
-        bool tamperBlockForDemo(int blockID, int newCandidateID);
-        string generateReceipt();
-        string calculateSHA256(int rollNumber, int vote,string timestamp, string receipt, string prevHash);
-        void deleteNode(BlockNode* node);
+        string calculateSHA256(int rollNumber, int vote,string timestamp, string prevHash);
+        void deleteNode(BlockNode* &node);
         
 };
 
