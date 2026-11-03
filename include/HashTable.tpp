@@ -4,13 +4,32 @@ HashTable<V>::HashTable(){
 }
 
 template <typename V>
+void HashTable<V>::clear(){
+    for(Entry*& head : table){
+        Entry* node = head;
+        while(node){
+            Entry* next = node->next;
+            delete node;
+            node = next;
+        }
+        head = nullptr;
+    }
+}
+
+template <typename V>
+HashTable<V>::~HashTable(){
+    clear();
+}
+
+template <typename V>
 void HashTable<V>::registerEntry(int k){
+    if(stateCheck(k) != 0) return;      // already registered
     int index = k%TABLE_SIZE;
     Entry* node = new Entry;
     node->key = k;
     node->value = nullptr;
     node->next = nullptr;
-    node->next = table[index];      // inserting new entries at tail;
+    node->next = table[index];      // inserting new entries at head; O(1) insertion
     table[index] = node;
 }
 

@@ -3,24 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transparent Voting System</title>
-    <link rel="stylesheet" href="style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Transparent Voting</title>
+    <style>
+        .hidden { display: none !important; }   /* must stay AFTER the bootstrap link */
+    </style>
 </head>
-<body>
-    <h1>Transparent Voting System (C++ Backend)</h1>
-    
-    <div class="card">
-        <h2>Cast a Vote</h2>
-        <form id="voteForm">
-            <input type="number" id="rollInput" placeholder="Enter Roll No" required>
-            <select id="candidateSelect">
-                <option value="1">Candidate 1</option>
-                <option value="2">Candidate 2</option>
-                <option value="3">Candidate 3</option>
-            </select>
-            <button type="submit">Cast Vote</button>
-        </form>
-        <p id="statusMessage"></p>
+<body class="d-flex bg-light">
+
+    <!-- Content -->
+    <div class="main-content flex-grow-1 p-5 w-100">
+        <h2 class="fw-bold mb-4">Dashboard</h2>
+        <h5 class="mb-3 fw-bold">Available Ballots</h5>
+
+        <div id="ballots" class="table-responsive bg-white p-4 shadow-sm rounded-3 border-0"></div>
+
+        <div class="text-end mt-4">
+            <button id="adminBtn" class="btn btn-outline-dark px-4 shadow-sm me-2">Admin Login</button>
+            <button id="createBtn" class="btn btn-outline-primary px-4 shadow-sm">Create Your Own Ballot &rarr;</button>
+        </div>
+    </div>
+
+    <!-- Login overlay (hidden until a ballot or Create is clicked) -->
+    <div id="loginOverlay" class="hidden position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+         style="background: rgba(0,0,0,0.6); z-index: 1050;">
+        <div class="card shadow-sm" style="width: 380px;">
+            <div class="card-body p-4">
+
+                <h4 id="loginTitle" class="text-center mb-3">Login</h4>
+
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label for="roll" class="form-label">Roll number</label>
+                        <input type="text" id="roll" class="form-control" placeholder="Enter your roll number" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+                    </div>
+                    <p id="loginMsg" class="text-danger small"></p>
+                    <button type="submit" class="btn btn-primary w-100 mb-2">Continue</button>
+                    <button type="button" id="cancelBtn" class="btn btn-outline-secondary w-100">Cancel</button>
+                </form>
+
+                <!-- shown after login: vote result or candidate buttons -->
+                <div id="resultArea" class="hidden">
+                    <div id="resultBody" class="d-grid gap-2"></div>
+                    <button type="button" id="closeBtn" class="btn btn-outline-secondary w-100 mt-3">Close</button>
+                </div>
+
+                <div class="text-center mt-3"><b>Keep Calm and Trust Democracy</b></div>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

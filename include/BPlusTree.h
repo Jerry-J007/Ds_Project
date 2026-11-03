@@ -1,54 +1,51 @@
+// BPlusTree.h
 #ifndef BPLUSTREE_H
 #define BPLUSTREE_H
 
-#include <string>
 #include <vector>
-#include <fstream>
+#include <string>
 
-// Record stored inside the B+ Tree Leaf Database
-struct VoteDBRecord{
-    int blockID;             // Primary Key (Indexed in B+ Tree)
-    int candidateID;         // Vote choice
-    std::string timestamp;   // Time of vote
-    std::string blockHash;   // Current block hash for cross-verification
-    std::string prevHash;    // Previous block hash
-};
+struct BlockNode;
 
-class BPlusNode{
+class BPlusNode {
 public:
     bool isLeaf;
-    std::vector<int> keys;
-    std::vector<BPlusNode*> children;       // Used only by internal nodes
-    std::vector<VoteDBRecord> records;      // Used only by leaf nodes
-    BPlusNode* nextLeaf;                    // Leaf-level linked list pointer
+    std::vector<int> keys;                  // Stores BlockIDs for binary search bounding within the node
+    std::vector<BPlusNode*> children;       // Internal node routing pointers for O(log N) traversal
+    std::vector<BlockNode*> records;        // Leaf node pointers directly to the in-memory Blockchain linked list ledger
+    BPlusNode* nextLeaf;                    // Singly linked list of leaves for O(K) sequential range queries
+    BPlusNode* parent; // Eliminates O(N) findParent bottleneck during bottom-up node splits
 
     BPlusNode(bool leaf);
 };
 
-class BPlusTreeDB{
+class BPlusTreeDB {
 private:
     BPlusNode* root;
-    const int MAX_KEYS = 3; // Small degree so splits are easy to demo in viva
-    std::string dbFilename;
+    const int MAX_KEYS = 3;                 // Tree order (m=4) constraint to force frequent splits for testing
+    std::string dbFilename;                 // Target binary database persistence file (e.g., votes_btree.db)
 
+    // Handles upward propagation of keys when an internal node exceeds MAX_KEYS
     void insertInternal(int key, BPlusNode* cursor, BPlusNode* child);
-    BPlusNode* findParent(BPlusNode* cursor, BPlusNode* child);
+    
+    // Post-order traversal to safely free memory and prevent leaks
     void destroyTree(BPlusNode* node);
-    void printLevelOrder(BPlusNode* node) const;
 
 public:
     BPlusTreeDB(const std::string& filename = "votes_btree.db");
     ~BPlusTreeDB();
 
-    // Core B+ Tree Operations
-    void insert(const VoteDBRecord& record);
-    VoteDBRecord* search(int blockID) const;
-    std::vector<VoteDBRecord> rangeQuery(int startBlockID, int endBlockID) const;
+    // Core B+ Tree operations maintaining logarithmic time complexities
+    void insert(int blockID, BlockNode* blockPtr);
+    BlockNode* search(int blockID) const;
+    std::vector<BlockNode*> rangeQuery(int startBlockID, int endBlockID) const;
 
-    // Database Persistence & Visualization
-    void displayTreeStructure() const;
-    bool persistToDisk() const;
-    void loadFromDisk();
+    void clear();                       // drop the whole index (used when the chain is rebuilt from disk)
+    void displayTreeStructure() const;  // Level-order BFS traversal for debugging tree topology
+    
+    // Ensures ACID-like atomicity during ledger persistence to avoid corrupted state on power/crash failures
+    bool saveLinkedListToDiskAtomically(BlockNode* head) const;
+    const std::string& getDbFilename() const { return dbFilename; }
 };
 
 #endif

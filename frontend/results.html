@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Results</title>
+</head>
+<body class="bg-light">
+    <div class="container my-5" style="max-width: 700px;">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h2 id="title" class="text-center mb-1"></h2>
+                <p class="text-center text-muted small mb-4">Poll ended <span id="endedAt"></span></p>
+
+                <div class="alert alert-success text-center">
+                    <div class="small text-uppercase">Winner</div>
+                    <h3 id="winner" class="mb-0"></h3>
+                </div>
+
+                <div class="row text-center mb-4">
+                    <div class="col"><div class="fs-4 fw-bold" id="votes"></div><div class="small text-muted">Votes cast</div></div>
+                    <div class="col"><div class="fs-4 fw-bold" id="voters"></div><div class="small text-muted">Registered voters</div></div>
+                    <div class="col"><div class="fs-4 fw-bold" id="turnout"></div><div class="small text-muted">Turnout</div></div>
+                </div>
+
+                <div id="bars"></div>
+
+                <a href="index.html" class="btn btn-outline-secondary w-100 mt-3">Back to dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const data = JSON.parse(sessionStorage.getItem('results') || 'null');
+        if (!data || !data.ok) window.location.href = 'index.html';       // opened directly
+
+        document.getElementById('title').textContent = data.title;
+        document.getElementById('endedAt').textContent = data.endedAt.replace('_', ' ');
+        document.getElementById('winner').textContent =
+            data.winners.length === 0 ? 'No votes were cast'
+            : data.winners.length === 1 ? data.winners[0]
+            : 'Tie: ' + data.winners.join(', ');
+        document.getElementById('votes').textContent = data.totalVotes;
+        document.getElementById('voters').textContent = data.totalVoters;
+        document.getElementById('turnout').textContent =
+            (data.totalVoters ? Math.round(100 * data.totalVotes / data.totalVoters) : 0) + '%';
+
+        const bars = document.getElementById('bars');
+        for (const r of data.results) {
+            const pct = data.totalVotes ? Math.round(1000 * r.votes / data.totalVotes) / 10 : 0;
+            const isWinner = data.winners.includes(r.name);
+
+            const row = document.createElement('div');
+            row.className = 'mb-3';
+
+            const label = document.createElement('div');
+            label.className = 'd-flex justify-content-between';
+            const name = document.createElement('span');
+            name.className = isWinner ? 'fw-bold' : '';
+            name.textContent = r.number + ' - ' + r.name;                 // textContent: safe for user text
+            const count = document.createElement('span');
+            count.textContent = r.votes + ' vote(s) (' + pct + '%)';
+            label.append(name, count);
+
+            const track = document.createElement('div');
+            track.className = 'progress';
+            const fill = document.createElement('div');
+            fill.className = 'progress-bar ' + (isWinner ? 'bg-success' : 'bg-secondary');
+            fill.style.width = pct + '%';
+            track.appendChild(fill);
+
+            row.append(label, track);
+            bars.appendChild(row);
+        }
+    </script>
+</body>
+</html>
