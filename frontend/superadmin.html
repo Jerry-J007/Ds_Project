@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Admin - All Ballots</title>
+</head>
+<body class="bg-light">
+    <div class="container my-5" style="max-width: 1000px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold mb-0">Admin: all ballots</h2>
+            <a href="index.html" id="logout" class="btn btn-outline-danger">Logout</a>
+        </div>
+
+        <p id="msg" class="small"></p>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="fw-bold mb-1">System tests</h5>
+                        <div class="small text-muted">Runs the automated unit tests on temporary data. Your ballots are not changed.</div>
+                    </div>
+                    <button id="runTests" class="btn btn-primary">Run and verify test cases</button>
+                </div>
+                <div id="testSummary" class="fw-bold mt-3"></div>
+                <table class="table table-sm align-middle mt-2 mb-0 d-none" id="testTable">
+                    <thead><tr><th style="width:3rem">#</th><th>Test</th><th style="width:6rem">Result</th><th style="width:6rem" class="text-end">Time</th></tr></thead>
+                    <tbody id="testRows"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="fw-bold mb-1">Users</h5>
+                        <div class="small text-muted">Add a new user. The password is hashed in your browser before it is sent.</div>
+                    </div>
+                    <button id="addUserBtn" class="btn btn-success">Add user</button>
+                </div>
+                <form id="addUserForm" class="row g-2 mt-2 d-none">
+                    <div class="col-md-4"><input id="newRoll" class="form-control" placeholder="Roll number (username)" inputmode="numeric" required></div>
+                    <div class="col-md-4"><input id="newPw" type="password" class="form-control" placeholder="Password" required></div>
+                    <div class="col-md-4"><button class="btn btn-primary">Save</button> <button type="button" id="cancelUser" class="btn btn-outline-secondary">Cancel</button></div>
+                </form>
+                <div id="userMsg" class="small mt-2"></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr><th>ID</th><th>Title</th><th>Ballot admin</th><th>Voters</th><th>Votes</th><th class="text-end">Actions</th></tr>
+                    </thead>
+                    <tbody id="rows"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const roll     = sessionStorage.getItem('roll');
+        const password = sessionStorage.getItem('password');
+        const msg      = document.getElementById('msg');
+
+        if (!roll || !password) window.location.href = 'index.html';
+
+        document.getElementById('logout').addEventListener('click', () => sessionStorage.clear());
+
+        async function call(path) {
+            const r = await fetch('/api/super/' + path, { method: 'POST', body: new URLSearchParams({ roll, password }) });
+            return r.json();
+        }
+
+        function button(text, cls, onClick) {
+            const b = document.createElement('button');
+            b.className = 'btn btn-sm ' + cls;
+            b.textContent = text;
+            b.addEventListener('click', onClick);
+            return b;
+        }
+
+        async function act(path, question) {
+            if (!confirm(question)) return;
+            const d = await call(path);
+            msg.textContent = d.ok ? 'Done.' : d.message;
+            msg.className = 'small ' + (d.ok ? 'text-success' : 'text-danger');
+            refresh();
+        }
+
+        async function refresh() {
+            const d = await call('ballots');
+            if (!d.ok) { window.location.href = 'index.html'; return; }   // not the admin
+
+            const body = document.getElementById('rows');
+            body.textContent = '';
+            if (!d.ballots.length) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 6;
+                td.textContent = 'No ballots.';
+                tr.appendChild(td);
+                body.appendChild(tr);
+            }
+            for (const b of d.ballots) {
+                const tr = document.createElement('tr');
+                for (const value of [b.id, b.title + (b.ended ? ' (ended)' : ''), b.admin, b.voters, b.votes]) {
+                    const td = document.createElement('td');
+                    td.textContent = value;                  // textContent: safe for user text
+                    tr.appendChild(td);
+                }
+                const actions = document.createElement('td');
+                actions.className = 'text-end';
+                actions.append(
+                    button('Clear votes', 'btn-outline-warning me-2', () =>
+                        act('ballots/' + b.id + '/clear', 'Remove ALL votes from "' + b.title + '"? Voters stay registered.')),
+                    button('Delete ballot', 'btn-outline-danger', () =>
+                        act('ballots/' + b.id + '/delete', 'Permanently delete "' + b.title + '" and all its data?'))
+                );
+                tr.appendChild(actions);
+                body.appendChild(tr);
+            }
+        }
+
+        document.getElementById('runTests').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            const summary = document.getElementById('testSummary');
+            const table = document.getElementById('testTable');
+            const rows = document.getElementById('testRows');
+            btn.disabled = true;
+            summary.className = 'fw-bold mt-3 text-muted';
+            summary.textContent = 'Running tests...';
+            rows.textContent = '';
+            try {
+                const d = await call('tests');
+                if (!d.ok) { summary.className = 'fw-bold mt-3 text-danger'; summary.textContent = d.message; return; }
+                d.tests.forEach((t, i) => {
+                    const tr = document.createElement('tr');
+                    const cells = [i + 1, t.name, t.passed ? 'PASS' : 'FAIL', t.ms + ' ms'];
+                    cells.forEach((value, c) => {
+                        const td = document.createElement('td');
+                        td.textContent = value;
+                        if (c === 2) td.className = 'fw-bold ' + (t.passed ? 'text-success' : 'text-danger');
+                        if (c === 3) td.className = 'text-end text-muted';
+                        tr.appendChild(td);
+                    });
+                    rows.appendChild(tr);
+                    if (!t.passed) {
+                        const detail = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = 4;
+                        td.className = 'small text-danger bg-light font-monospace';
+                        td.textContent = 'Failed check: ' + t.detail;
+                        detail.appendChild(td);
+                        rows.appendChild(detail);
+                    }
+                });
+                table.classList.remove('d-none');
+                const ok = d.passed === d.total;
+                summary.className = 'fw-bold mt-3 ' + (ok ? 'text-success' : 'text-danger');
+                summary.textContent = ok ? 'All ' + d.total + ' tests passed.' : d.passed + ' of ' + d.total + ' tests passed.';
+            } catch (err) {
+                summary.className = 'fw-bold mt-3 text-danger';
+                summary.textContent = 'Could not reach the server.';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        /* ---------- add user: salt + PBKDF2-SHA256 (100000 rounds) in the browser, same scheme the server checks at login ---------- */
+        const userForm = document.getElementById('addUserForm');
+        const userMsg  = document.getElementById('userMsg');
+
+        document.getElementById('addUserBtn').addEventListener('click', () => userForm.classList.toggle('d-none'));
+        document.getElementById('cancelUser').addEventListener('click', () => { userForm.reset(); userForm.classList.add('d-none'); });
+
+        async function hashForServer(pw) {
+            const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+            const salt = Array.from(saltBytes, b => b.toString(16).padStart(2, '0')).join('');   // 32 hex chars
+            const enc = new TextEncoder();
+            const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+            const bits = await crypto.subtle.deriveBits(
+                { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt), iterations: 100000 }, key, 256);   // the server uses the salt text as the salt bytes
+            const hash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2, '0')).join('');
+            return salt + '$' + hash;
+        }
+
+        userForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newRoll = document.getElementById('newRoll').value.trim();
+            const newPw   = document.getElementById('newPw').value;
+            userMsg.className = 'small mt-2 text-danger';
+            if (!/^[0-9]{1,9}$/.test(newRoll) || Number(newRoll) < 1) { userMsg.textContent = 'Roll number must be a positive number.'; return; }
+            if (!newPw) { userMsg.textContent = 'Enter a password.'; return; }
+            if (!window.crypto || !crypto.subtle) { userMsg.textContent = 'This browser page cannot hash passwords here. Open the site via http://localhost:8080.'; return; }
+            try {
+                const stored = await hashForServer(newPw);
+                const r = await fetch('/api/super/users/add', { method: 'POST', body: new URLSearchParams({ roll, password, newRoll, stored }) });
+                const d = await r.json();
+                userMsg.className = 'small mt-2 ' + (d.ok ? 'text-success' : 'text-danger');
+                userMsg.textContent = d.ok ? 'User ' + newRoll + ' added.' : d.message;
+                if (d.ok) userForm.reset();
+            } catch (err) {
+                userMsg.textContent = 'Could not reach the server.';
+            }
+        });
+
+        refresh();
+    </script>
+</body>
+</html>

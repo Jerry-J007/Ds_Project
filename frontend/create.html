@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Create Ballot</title>
+</head>
+<body class="d-flex bg-light">
+    <div class="d-flex flex-column flex-shrink-0 text-white p-3 bg-dark min-vh-100" style="width: 250px;">
+        <div class="nav nav-pills flex-column mb-auto gap-2 mt-3">
+            <a href="index.html" class="text-warning nav-link">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="flex-grow-1 p-5 w-100">
+        <h2 class="fw-bold text-primary mb-4">Create Your Ballot Here</h2>
+
+        <div class="row">
+            <div class="col-md-6 col-lg-5">
+                <div class="card shadow-sm">
+                    <div class="card-body p-4">
+                        <form id="createForm">
+                            <div class="mb-3">
+                                <label class="form-label">Ballot Title</label>
+                                <input type="text" id="title" required class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Candidates</label>
+                                <ul id="candList" class="list-group mb-2"></ul>
+                                <div class="input-group">
+                                    <input type="number" min="1" id="candNumber" class="form-control" placeholder="Number" style="max-width: 110px;">
+                                    <input type="text" id="candName" maxlength="40" class="form-control" placeholder="Name">
+                                    <button type="button" id="addCand" class="btn btn-outline-primary">Add candidate</button>
+                                </div>
+                                <p id="candMsg" class="small text-danger mb-0"></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Registered voter roll numbers (comma separated)</label>
+                                <input type="text" id="voters" required class="form-control" placeholder="101,102,103">
+                            </div>
+                            <p id="msg" class="small text-danger"></p>
+                            <button class="btn btn-primary w-100" type="submit">Create</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const roll     = sessionStorage.getItem('roll');
+        const password = sessionStorage.getItem('password');
+        const msg      = document.getElementById('msg');
+
+        if (!roll || !password) window.location.href = 'index.html';   // opened without logging in
+
+        const candidates = [];                       // [{number, name}], in the order added
+
+        function renderCandidates() {
+            const list = document.getElementById('candList');
+            list.textContent = '';
+            candidates.forEach((c, i) => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.textContent = c.number + ' - ' + c.name;          // textContent: safe for user text
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'btn btn-sm btn-outline-danger';
+                del.textContent = 'Remove';
+                del.addEventListener('click', () => { candidates.splice(i, 1); renderCandidates(); });
+                li.appendChild(del);
+                list.appendChild(li);
+            });
+        }
+
+        document.getElementById('addCand').addEventListener('click', () => {
+            const numberBox = document.getElementById('candNumber');
+            const nameBox = document.getElementById('candName');
+            const candMsg = document.getElementById('candMsg');
+            const number = numberBox.value.trim();
+            const name = nameBox.value.trim();
+            if (!/^[1-9][0-9]{0,8}$/.test(number)) { candMsg.textContent = 'Enter a positive candidate number.'; return; }
+            if (!name || /[,|]/.test(name)) { candMsg.textContent = "Enter a name (no ',' or '|')."; return; }
+            if (candidates.some(c => c.number === number)) { candMsg.textContent = 'That number is already used.'; return; }
+            candMsg.textContent = '';
+            candidates.push({ number, name });
+            numberBox.value = '';
+            nameBox.value = '';
+            numberBox.focus();
+            renderCandidates();
+        });
+
+        document.getElementById('createForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (candidates.length < 2) { msg.textContent = 'Add at least 2 candidates.'; return; }
+            const body = new URLSearchParams({
+                roll, password,
+                title:      document.getElementById('title').value,
+                candidates: candidates.map(c => c.number + '|' + c.name).join(','),
+                voters:     document.getElementById('voters').value
+            });
+            const r = await fetch('/api/ballots', { method: 'POST', body });
+            const data = await r.json();
+            if (!data.ok) { msg.textContent = data.message; return; }
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>

@@ -18,12 +18,16 @@ class HashTable{
         vector<Entry*> table;
 
         HashTable();
-        void registerEntry(int k);
-        void insert(int k, V val);
-        int stateCheck(int k);
+        ~HashTable();                       // frees the entries (the stored values belong to someone else)
+        HashTable(const HashTable&) = delete;               // a copy would free the same entries twice
+        HashTable& operator=(const HashTable&) = delete;
+        void registerEntry(int k);                          // Just registers the entry, the pointer is still null
+        void insert(int k, V val);                      // can be called only on registered entries, adds value (pointer) to the respective key
+        int stateCheck(int k);              // To check if a user is allowed to vote and if he has voted
         V find(int k);
-        bool remove(int k);
-        bool removeEntry(int k);
+        bool remove(int k);                     // deletes the register entry
+        bool removeEntry(int k);                // only deletes the node entry, register entry is still there
+        void clear();                       // drops every entry (values are not freed)
 };
 
 #include "HashTable.tpp"

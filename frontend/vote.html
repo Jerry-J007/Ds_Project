@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Select Vote</title>
+    <style>
+        /* clearly visible outline when empty, filled dot when selected */
+        .form-check-input[type="radio"] {
+            width: 1.3em;
+            height: 1.3em;
+            border: 2px solid #212529;
+            background-color: #fff;
+            cursor: pointer;
+        }
+        .form-check-input[type="radio"]:checked {
+            border-color: #0d6efd;
+            background-color: #0d6efd;             /* solid fill */
+            background-image: none;                /* drop bootstrap's white dot */
+        }
+        .form-check-label { cursor: pointer; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-body p-5">
+
+                        <h2 class="text-center mb-4">Select vote</h2>
+
+                        <form id="voteForm">
+                            <!-- filled by script.  Starts empty. -->
+                            <div id="candidateList" class="mb-4"></div>
+
+                            <p id="msg" class="text-danger small"></p>
+                            <button type="submit" class="btn btn-primary w-100 mb-2">Vote</button>
+                            <a href="index.html" class="btn btn-outline-secondary w-100">Back</a>
+                        </form>
+
+                        <div class="text-center mt-3"><b>Keep Calm and Trust Democracy</b></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const list = document.getElementById('candidateList');
+        const msg  = document.getElementById('msg');
+
+        const ballotId = sessionStorage.getItem('ballotId');
+        const roll     = sessionStorage.getItem('roll');
+        const password = sessionStorage.getItem('password');
+
+        async function loadCandidates() {
+            if (!ballotId || !roll || !password) {          // opened directly, not via login
+                window.location.href = 'index.html';
+                return;
+            }
+            // ask the backend again; this re-checks the credentials
+            const r = await fetch('/api/ballots/' + ballotId + '/access',
+                                  { method: 'POST', body: new URLSearchParams({ roll, password }) });
+            const data = await r.json();
+
+            if (data.ok && data.state === 'voted') {
+                sessionStorage.setItem('votedFor', data.candidate + ' - ' + data.name);
+                sessionStorage.removeItem('password');
+                window.location.href = 'already_voted.html';
+                return;
+            }
+            if (!data.ok || data.state !== 'eligible') {
+                msg.textContent = data.message || 'You cannot vote in this ballot.';
+                return;
+            }
+            data.candidates.forEach((cand, i) => {
+                const row = document.createElement('div');
+                row.className = 'form-check mb-2';
+
+                const input = document.createElement('input');
+                input.type = 'radio';
+                input.name = 'candidate';
+                input.value = cand.number;
+                input.dataset.name = cand.name;
+                input.id = 'cand' + i;
+                input.className = 'form-check-input';
+
+                const label = document.createElement('label');
+                label.htmlFor = input.id;
+                label.className = 'form-check-label';
+                label.textContent = cand.number + ' - ' + cand.name;                   // textContent: safe for user text
+
+                row.append(input, label);
+                list.appendChild(row);
+            });
+        }
+
+        document.getElementById('voteForm').addEventListener('submit', (e) => {
+            e.preventDefault();                             // don't reload the page
+            const chosen = document.querySelector('input[name="candidate"]:checked');
+            if (!chosen) { msg.textContent = 'Please select a candidate.'; return; }
+
+            sessionStorage.setItem('candidate', chosen.value);
+            sessionStorage.setItem('candidateName', chosen.dataset.name);
+            window.location.href = 'confirm_vote.html';
+        });
+
+        loadCandidates();
+    </script>
+</body>
+</html>
